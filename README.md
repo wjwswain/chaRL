@@ -19,5 +19,7 @@
 - [Charl's Channel](https://www.youtube.com/channel/UCF1fG3gT44nGTPU2sVLoFWg "Patrick F Willems on YouTube")
 
 <div align="center">
-	![Charl](media/charl.png "Charl")
+
+![Charl](media/charl.png "Charl")
+
 </div>
