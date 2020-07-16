@@ -1,7 +1,6 @@
 # ChaRL
 
-> "You wanna get _nuts_?  Let's get **coconuts**!"
-> - Bruce Wayne to his personal shopper
+> "You wanna get _nuts_?  Let's get **coconuts**!" - Bruce Wayne to his personal shopper
 
 ## Resources:
 
@@ -19,4 +18,6 @@
 ### Lagniappe:
 - [Charl's Channel](https://www.youtube.com/channel/UCF1fG3gT44nGTPU2sVLoFWg "Patrick F Willems on YouTube")
 
-![Charl](media/charl.png "Charl")
+<div align="center">
+	![Charl](media/charl.png "Charl")
+</div>
