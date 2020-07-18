@@ -1,6 +1,6 @@
 # ChaRL
 
-> "You wanna get _nuts_?  Let's get **coconuts**!" - Bruce Wayne to his personal shopper
+> "You wanna get _nuts_?  Let's get _coconuts_!" - Bruce Wayne to his personal shopper
 
 ## Resources:
 
