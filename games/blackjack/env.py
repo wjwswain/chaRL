@@ -156,12 +156,10 @@ class Hand:
 
 	def display(self):
 		print(self.name)
-		card_str = " "
 		if self.name == "Dealer":
-			card_str += print("?? ")
+			print("?? ")
 		for card in self.cards:
-			card_str += card + ' '
-		print(card_str)
+			print(card)
 
 	def add_card(self, card):
 		if card.isAce():
