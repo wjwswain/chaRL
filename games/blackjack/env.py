@@ -203,8 +203,6 @@ class Card:
 	def __init__(self, value, suit):
 		self.value = value
 		self.suit = suit
-		suits = {'C':0, 'H':1, 'S':2, 'D':3}
-		faces = {'A':0, 'J':10, 'Q':11, 'K':12}
 
 	def __repr__(self):
 		return self.value + self.suit
@@ -218,6 +216,8 @@ class Card:
 			return 10
 
 	def get_index(self):
+		suits = {'C':0, 'H':1, 'S':2, 'D':3}
+		faces = {'A':0, 'J':10, 'Q':11, 'K':12}
 		suit_index = suits[self.suit]
 		if self.value.isnumeric():
 			value_index = int(self.value)
