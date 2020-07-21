@@ -115,7 +115,7 @@ class GameEnv(gym.Env):
 		if mode != "console":
 			raise NotImplementedError()
 		else:
-			if self.stage == 0:
+			if self.observation[0] == 0:
 				if self.rounds != 0:
 					print(self.name, "bets", str(self.bet))
 				else:
