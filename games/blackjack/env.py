@@ -18,24 +18,26 @@ class GameEnv(gym.Env):
 		self.name = "Example"
 		
 		self.deck = Deck()
+		self.deck.shuffle()
 		self.hand = Hand(self.name)
 		self.dealer = Hand("Dealer")
 
-		self.observation = {}
+		self.observation = np.zeros(157, dtype=np.int8)#[stage(0), deck left(1-52), player's hand(53-104), dealer's hand(105-156)]
+		self.observation[1:53] = 1
 		self.reward = 0
 		self.done = False
 		self.info = {}
 
 		self.action_space = spaces.MultiDiscrete([100,1])# [$5-$500 bid, hit(0)/stay(1)]
-		self.observation_space = spaces.MultiBinary([1,52,52,52])# [stage, deck left, player's hand, dealer's hand]
+		self.observation_space = spaces.MultiBinary(157)# I hate the limitations of stable-baselines
 
 	def reshuffle(self):
 		self.deck = Deck()
 		self.deck.shuffle()
-		self.observation[1] = np.ones(shape=52, dtype=np.int8) #deck left
+		self.observation[1:53] = 1 #deck left
 
 	def step(self, action):
-		if self.observation[0][0] == 0: #stage
+		if self.observation[0] == 0: #stage
 			if self.deck.len() < 3:
 				self.reshuffle()
 
@@ -46,32 +48,28 @@ class GameEnv(gym.Env):
 			self.hand = Hand(self.name)
 			for hand_i in range(2):
 				idx = self.hand.add_card(self.deck.deal())
-				self.observation[1][idx] = 0
-				self.observation[2][idx] = 1
+				self.observation[1+idx] = 0
+				self.observation[53+idx] = 1
 
 			self.dealer = Hand("Dealer")
 			idx = self.hand.add_card(self.deck.deal())
-			self.observation[1][idx] = 0
-			self.observation[3][idx] = 1
+			self.observation[1+idx] = 0
+			self.observation[105+idx] = 1
 
-			self.observation[0][0] = 1
+			self.observation[0] = 1
 			self.reward = 0
 
-		elif action[1][0] == 0:
+		elif action[1] == 0:
 			if self.deck.len() == 0:
 				self.reshuffle()
 			idx = self.hand.add_card(self.deck.deal())
-			self.observation[1][idx] = 0
-			self.observation[2][idx] = 1
+			self.observation[1+idx] = 0
+			self.observation[53+idx] = 1
 
 			if self.hand.value > 22 and self.hand.aces == 0:
 				self.reward = -self.bet
-				self.observation = np.array([
-					np.zeros(shape=1, dtype=np.int8),
-					self.observation[1],
-					np.zeros(shape=52, dtype=np.int8),
-					np.zeros(shape=52, dtype=np.int8)
-				])
+				self.observation[0] = 0
+				self.observation[53:] = 0
 			else:
 				self.reward = 0
 
@@ -97,12 +95,8 @@ class GameEnv(gym.Env):
 			else:
 				self.reward = -self.bet
 
-			self.observation = np.array([
-				np.zeros(shape=1, dtype=np.int8),
-				self.observation[1],
-				np.zeros(shape=52, dtype=np.int8),
-				np.zeros(shape=52, dtype=np.int8)
-			])
+			self.observation[0] = 0
+			self.observation[53:] = 0
 
 			if self.rounds == 500 or self.bankroll == 0:
 				self.done = True
@@ -112,12 +106,9 @@ class GameEnv(gym.Env):
 		self.deck = Deck()
 		self.deck.shuffle()
 
-		self.observation = np.array([
-			np.zeros(shape=1, dtype=np.int8),
-			np.ones(shape=52, dtype=np.int8),
-			np.zeros(shape=52, dtype=np.int8),
-			np.zeros(shape=52, dtype=np.int8)
-		])
+		self.observation = np.zeros(157, dtype=np.int8)
+		self.observation[1:53] = 1
+
 		return self.observation
 
 	def render(self, mode="console"):
