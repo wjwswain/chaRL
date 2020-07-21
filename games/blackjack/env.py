@@ -26,67 +26,52 @@ class GameEnv(gym.Env):
 		self.done = False
 		self.info = {}
 
-		self.action_space = spaces.Dict({#... will ignore irrelevant moves
-			"bet":spaces.Discrete(100), #5(bet+1) = true bet (5-500) 
-			"hit_or_stand":spaces.Discrete(2) #hit=0, stand=1
-		})
-		self.observation_space = spaces.Dict({
-			"stage":spaces.Discrete(2),#0=bet, 1=hit_or_stand
-			"cards_left":spaces.MultiBinary(52),#deck binary array
-			"hand_contents":spaces.MultiBinary(52),#hand binary array
-			"hand_value":spaces.Discrete(21),#0, 2-21
-			"dealer_contents":spaces.MultiBinary(52),#hand binary array
-			"dealer_value":spaces.Discrete(11)#0, 2-11
-		})
+		self.action_space = spaces.MultiDiscrete([100,1])# [$5-$500 bid, hit(0)/stay(1)]
+		self.observation_space = spaces.MultiBinary([1,52,52,52])# [stage, deck left, player's hand, dealer's hand]
 
 	def reshuffle(self):
 		self.deck = Deck()
 		self.deck.shuffle()
-		self.observation["cards_left"] = np.ones(shape=52, dtype=np.int8)
+		self.observation[1] = np.ones(shape=52, dtype=np.int8) #deck left
 
 	def step(self, action):
-		if self.observation["stage"] == 0:
+		if self.observation[0][0] == 0: #stage
 			if self.deck.len() < 3:
 				self.reshuffle()
 
 			self.rounds += 1
-			self.bet = max(5*(action["bet"]+1), self.bankroll)
+			self.bet = max(5*(action[0]+1), self.bankroll)
 			self.bankroll -= self.bet
 
 			self.hand = Hand(self.name)
 			for hand_i in range(2):
 				idx = self.hand.add_card(self.deck.deal())
-				self.observation["cards_left"][idx] = 0
-				self.observation["hand_contents"][idx] = 1
-			self.observation["hand_value"] = self.hand.value
+				self.observation[1][idx] = 0
+				self.observation[2][idx] = 1
 
 			self.dealer = Hand("Dealer")
 			idx = self.hand.add_card(self.deck.deal())
-			self.observation["cards_left"][idx] = 0
-			self.observation["dealer_contents"][idx] = 1
-			self.observation["dealer_value"] = self.dealer.value
+			self.observation[1][idx] = 0
+			self.observation[3][idx] = 1
 
-			self.observation["stage"] = 1
+			self.observation[0][0] = 1
 			self.reward = 0
 
-		elif action["hit_or_stand"] == 0:
+		elif action[1][0] == 0:
 			if self.deck.len() == 0:
 				self.reshuffle()
 			idx = self.hand.add_card(self.deck.deal())
-			self.observation["cards_left"][idx] = 0
-			self.observation["hand_contents"][idx] = 1
-			self.observation["hand_value"] = self.hand.value
+			self.observation[1][idx] = 0
+			self.observation[2][idx] = 1
 
 			if self.hand.value > 22 and self.hand.aces == 0:
 				self.reward = -self.bet
-				self.observation = {
-					"stage":0,
-					"cards_left":self.observation["cards_left"],
-					"hand_contents":np.zeros(shape=52, dtype=np.int8),
-					"hand_value":0,
-					"dealer_contents":np.zeros(shape=52, dtype=np.int8),
-					"dealer_value":0
-				}
+				self.observation = np.array([
+					np.zeros(shape=1, dtype=np.int8),
+					self.observation[1],
+					np.zeros(shape=52, dtype=np.int8),
+					np.zeros(shape=52, dtype=np.int8)
+				])
 			else:
 				self.reward = 0
 
@@ -112,14 +97,12 @@ class GameEnv(gym.Env):
 			else:
 				self.reward = -self.bet
 
-			self.observation = {
-				"stage":0,
-				"cards_left":self.observation["cards_left"],
-				"hand_contents":np.zeros(shape=52, dtype=np.int8),
-				"hand_value":0,
-				"dealer_contents":np.zeros(shape=52, dtype=np.int8),
-				"dealer_value":0
-			}
+			self.observation = np.array([
+				np.zeros(shape=1, dtype=np.int8),
+				self.observation[1],
+				np.zeros(shape=52, dtype=np.int8),
+				np.zeros(shape=52, dtype=np.int8)
+			])
 
 			if self.rounds == 500 or self.bankroll == 0:
 				self.done = True
@@ -129,14 +112,12 @@ class GameEnv(gym.Env):
 		self.deck = Deck()
 		self.deck.shuffle()
 
-		self.observation = {
-		"stage":0,
-		"cards_left":np.ones(shape=52, dtype=np.int8),
-		"hand_contents":np.zeros(shape=52, dtype=np.int8),
-		"hand_value":0,
-		"dealer_contents":np.zeros(shape=52, dtype=np.int8),
-		"dealer_value":0
-		}
+		self.observation = np.array([
+			np.zeros(shape=1, dtype=np.int8),
+			np.ones(shape=52, dtype=np.int8),
+			np.zeros(shape=52, dtype=np.int8),
+			np.zeros(shape=52, dtype=np.int8)
+		])
 		return self.observation
 
 	def render(self, mode="console"):
