@@ -28,7 +28,7 @@ class GameEnv(gym.Env):
 		self.done = False
 		self.info = {}
 
-		self.action_space = spaces.MultiDiscrete([100,1])# [$5-$500 bid, hit(0)/stay(1)]
+		self.action_space = spaces.MultiDiscrete([100,2])# [$5-$500 bid, hit(0)/stay(1)]
 		self.observation_space = spaces.MultiBinary(157)# I hate the limitations of stable-baselines
 
 	def reshuffle(self):
@@ -52,7 +52,7 @@ class GameEnv(gym.Env):
 				self.observation[53+idx] = 1
 
 			self.dealer = Hand()
-			idx = self.hand.add_card(self.deck.deal())
+			idx = self.dealer.add_card(self.deck.deal())
 			self.observation[1+idx] = 0
 			self.observation[105+idx] = 1
 
@@ -66,30 +66,30 @@ class GameEnv(gym.Env):
 			self.observation[1+idx] = 0
 			self.observation[53+idx] = 1
 
-			if self.hand.value > 22 and self.hand.aces == 0:
+			if self.hand.value[-1] > 21:
 				self.reward = -self.bet
 				self.observation[0] = 0
 				self.observation[53:] = 0
+				if self.rounds == 500 or int(self.bankroll) < 5:
+					self.done = True
 			else:
 				self.reward = 0
 
 		else:
-			while self.dealer.value < 17:
+			while self.dealer.value[0] < 17:
 				if self.deck.len() == 0:
 					self.reshuffle()
 				idx = self.dealer.add_card(self.deck.deal())
 
 			for hand in [self.hand, self.dealer]:
-				if hand.value > 21 and hand.aces != 0:
-					for ace in range(1, hand.aces+1):
-						pot_value = hand.value - (ace*10)
-						if pot_value < 22:
-							hand.value = pot_value
-
-			if self.hand.value == self.dealer.value and self.hand.value < 22:
+				if len(hand.value) > 1:
+					hand.best_val = 21 - min([21-val for val in hand.value])
+				else:
+					hand.best_val = hand.value[0]
+			if self.hand.best_val == self.dealer.best_val and self.hand.best_val < 22:
 				self.reward = self.bet
 				self.bankroll += self.reward
-			elif self.hand.value > self.dealer.value and self.hand.value < 22:
+			elif self.hand.best_val > self.dealer.best_val and self.hand.best_val < 22:
 				self.reward = 1.5*self.bet
 				self.bankroll += self.reward
 			else:
@@ -98,7 +98,7 @@ class GameEnv(gym.Env):
 			self.observation[0] = 0
 			self.observation[53:] = 0
 
-			if self.rounds == 500 or self.bankroll == 0:
+			if self.rounds == 500 or int(self.bankroll) < 5:
 				self.done = True
 		return self.observation, self.reward, self.done, self.info
 
@@ -116,15 +116,17 @@ class GameEnv(gym.Env):
 			raise NotImplementedError()
 		else:
 			if self.observation[0] == 0:
-				print(self.name + ': ' + str(self.bankroll))
 				if self.rounds > 1:
 					print("Round Reward:", self.reward)
+					print()
+				print(self.name + ': ' + str(self.bankroll))
 			else:
 				print(self.name, "bet", str(self.bet) + ':')
 				if len(self.hand.cards) > 0:
 					self.hand.display()
 					print()
 					print("Dealer:")
+					print("??")
 					self.dealer.display()
 					print()
 
@@ -151,8 +153,8 @@ class Deck:
 class Hand:
 	def __init__(self):
 		self.cards = []
-		self.value = 0
-		self.aces = 0
+		self.value = [0]
+		self.best_val = 0
 
 	def display(self):
 		for card in self.cards:
@@ -160,9 +162,10 @@ class Hand:
 
 	def add_card(self, card):
 		if card.isAce():
-			self.aces += 1
+			self.value.append(-10)
 		self.cards.append(card)
-		self.value += card.get_value()
+		for i in range(len(self.value)):
+			self.value[i] += card.get_value()
 		return card.get_index()
 
 
