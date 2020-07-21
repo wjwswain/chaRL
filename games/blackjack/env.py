@@ -42,7 +42,7 @@ class GameEnv(gym.Env):
 				self.reshuffle()
 
 			self.rounds += 1
-			self.bet = max(5*(action[0]+1), self.bankroll)
+			self.bet = min(5*(action[0]+1), self.bankroll)
 			self.bankroll -= self.bet
 
 			self.hand = Hand(self.name)
@@ -116,16 +116,17 @@ class GameEnv(gym.Env):
 			raise NotImplementedError()
 		else:
 			if self.observation[0] == 0:
-				if self.rounds != 0:
-					print(self.name, "bets", str(self.bet))
-				else:
-					print("Game Initializing...")
-					print()
-			else:
 				print(self.name + ': ' + str(self.bankroll))
-				print(self.hand.display())
+				if self.hand.len() > 0:
+					print(self.hand.display)
+					print()
+					print("Dealer:")
+					print(self.dealer.display())
+					print()
+					print("Total Reward:", self.reward)
+			else:
+				print(self.name, "bet", str(self.bet))
 				print()
-				print("Dealer:", self.dealer.display())
 
 	def close (self):
 		pass
@@ -157,7 +158,7 @@ class Hand:
 	def display(self):
 		print(self.name)
 		if self.name == "Dealer":
-			print("?? ")
+			print("??")
 		for card in self.cards:
 			print(card)
 
