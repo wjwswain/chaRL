@@ -14,6 +14,8 @@ class GameEnv(gym.Env):
 
 		self.bet = 0
 		self.rounds = 1
+		self.max_rounds = bankroll//5 + 1
+		self.reset_bankroll = bankroll
 		self.bankroll = bankroll
 		self.name = name
 
@@ -70,7 +72,7 @@ class GameEnv(gym.Env):
 				self.reward = -self.bet
 				self.observation[0] = 0
 				self.observation[53:] = 0
-				if self.rounds == 500 or int(self.bankroll) < 5:
+				if self.rounds == self.max_rounds or int(self.bankroll) < 5:
 					self.done = True
 			else:
 				self.reward = 0
@@ -83,28 +85,36 @@ class GameEnv(gym.Env):
 
 			for hand in [self.hand, self.dealer]:
 				if len(hand.value) > 1:
-					hand.best_val = 21 - min([21-val for val in hand.value])
+					adj_hand_vals = [21-val for val in hand.value if val < 22]
+					if len(adj_hand_vals) == 0:
+						hand.best_val = hand.value[0]
+					else:
+						hand.best_val = 21 - min(adj_hand_vals)
 				else:
 					hand.best_val = hand.value[0]
-			if self.hand.best_val == self.dealer.best_val and self.hand.best_val < 22:
-				self.reward = self.bet
-				self.bankroll += self.reward
-			elif self.hand.best_val > self.dealer.best_val and self.hand.best_val < 22:
-				self.reward = 1.5*self.bet
-				self.bankroll += self.reward
+			if self.hand.best_val == self.dealer.best_val:
+				self.reward = 0
+				self.bankroll += self.bet
+			elif self.hand.best_val > self.dealer.best_val or self.dealer.best_val > 21:
+				self.reward = 10*self.bet
+				self.bankroll += 1.5*self.bet
 			else:
 				self.reward = -self.bet
 
 			self.observation[0] = 0
 			self.observation[53:] = 0
 
-			if self.rounds == 500 or int(self.bankroll) < 5:
+			if self.rounds == self.max_rounds or int(self.bankroll) < 5:
 				self.done = True
 		return self.observation, self.reward, self.done, self.info
 
 	def reset(self):
 		self.deck = Deck()
 		self.deck.shuffle()
+
+		self.bankroll = self.reset_bankroll
+		self.rounds = 1
+		self.done = False
 
 		self.observation = np.zeros(157, dtype=np.int8)
 		self.observation[1:53] = 1
@@ -162,7 +172,7 @@ class Hand:
 
 	def add_card(self, card):
 		if card.isAce():
-			self.value.append(-10)
+			self.value.append(self.value[-1]-10)
 		self.cards.append(card)
 		for i in range(len(self.value)):
 			self.value[i] += card.get_value()
