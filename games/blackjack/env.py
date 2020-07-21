@@ -9,18 +9,18 @@ from gym import spaces
 class GameEnv(gym.Env):
 	metadata = {'render.modes': ['console']}
 
-	def __init__(self):
+	def __init__(self, bankroll, name):
 		super(GameEnv, self).__init__()
 
 		self.bet = 0
 		self.rounds = 1
-		self.bankroll = 5000
-		self.name = "Example"
-		
+		self.bankroll = bankroll
+		self.name = name
+
 		self.deck = Deck()
 		self.deck.shuffle()
-		self.hand = Hand(self.name)
-		self.dealer = Hand("Dealer")
+		self.hand = Hand()
+		self.dealer = Hand()
 
 		self.observation = np.zeros(157, dtype=np.int8)#[stage(0), deck left(1-52), player's hand(53-104), dealer's hand(105-156)]
 		self.observation[1:53] = 1
@@ -45,13 +45,13 @@ class GameEnv(gym.Env):
 			self.bet = min(5*(action[0]+1), self.bankroll)
 			self.bankroll -= self.bet
 
-			self.hand = Hand(self.name)
+			self.hand = Hand()
 			for hand_i in range(2):
 				idx = self.hand.add_card(self.deck.deal())
 				self.observation[1+idx] = 0
 				self.observation[53+idx] = 1
 
-			self.dealer = Hand("Dealer")
+			self.dealer = Hand()
 			idx = self.hand.add_card(self.deck.deal())
 			self.observation[1+idx] = 0
 			self.observation[105+idx] = 1
@@ -117,14 +117,15 @@ class GameEnv(gym.Env):
 		else:
 			if self.observation[0] == 0:
 				print(self.name + ': ' + str(self.bankroll))
-				print("Round Reward:", self.reward)
+				if self.rounds > 1:
+					print("Round Reward:", self.reward)
 			else:
 				print(self.name, "bet", str(self.bet) + ':')
 				if len(self.hand.cards) > 0:
-					print(self.hand.display)
+					self.hand.display()
 					print()
 					print("Dealer:")
-					print(self.dealer.display())
+					self.dealer.display()
 					print()
 
 	def close (self):
@@ -148,16 +149,12 @@ class Deck:
 
 
 class Hand:
-	def __init__(self, name):
-		self.name = name
+	def __init__(self):
 		self.cards = []
 		self.value = 0
 		self.aces = 0
 
 	def display(self):
-		print(self.name)
-		if self.name == "Dealer":
-			print("??")
 		for card in self.cards:
 			print(card)
 
