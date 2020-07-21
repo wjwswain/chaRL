@@ -117,16 +117,15 @@ class GameEnv(gym.Env):
 		else:
 			if self.observation[0] == 0:
 				print(self.name + ': ' + str(self.bankroll))
-				if self.hand.len() > 0:
+				print("Round Reward:", self.reward)
+			else:
+				print(self.name, "bet", str(self.bet) + ':')
+				if len(self.hand.cards) > 0:
 					print(self.hand.display)
 					print()
 					print("Dealer:")
 					print(self.dealer.display())
 					print()
-					print("Total Reward:", self.reward)
-			else:
-				print(self.name, "bet", str(self.bet))
-				print()
 
 	def close (self):
 		pass
