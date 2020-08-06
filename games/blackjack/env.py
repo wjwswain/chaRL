@@ -6,15 +6,15 @@ import random
 import gym
 from gym import spaces
 
-class GameEnv(gym.Env):
+class Blackjack(gym.Env):
 	metadata = {'render.modes': ['console']}
 
 	def __init__(self, bankroll, name):
-		super(GameEnv, self).__init__()
+		super(Blackjack, self).__init__()
 
 		self.bet = 0
-		self.rounds = 1
-		self.max_rounds = bankroll//5 + 1
+		self.rounds = 0
+		self.max_rounds = bankroll//5
 		self.reset_bankroll = bankroll
 		self.bankroll = bankroll
 		self.name = name
@@ -24,8 +24,7 @@ class GameEnv(gym.Env):
 		self.hand = Hand()
 		self.dealer = Hand()
 
-		self.observation = np.zeros(157, dtype=np.int8)#[stage(0), deck left(1-52), player's hand(53-104), dealer's hand(105-156)]
-		self.observation[1:53] = 1
+		self.observation = np.zeros(157, dtype=np.int8)#[stage(0), deck(1-52), player's hand(53-104), dealer's hand(105-156)]
 		self.reward = 0
 		self.done = False
 		self.info = {}
@@ -36,76 +35,60 @@ class GameEnv(gym.Env):
 	def reshuffle(self):
 		self.deck = Deck()
 		self.deck.shuffle()
-		self.observation[1:53] = 1 #deck left
+		self.observation[1:53] = 0 #deck empty
+
+	def hit(self, hand, count, hand_start):
+		if self.deck.len() < count:
+			self.reshuffle()
+		for i in range(count):
+			idx = hand.add_card(self.deck.deal())
+			self.observation[1+idx] = 1
+			self.observation[hand_start+idx] = 1
+		return hand
+
+	def stand(self):
+		pass
+
+	def end_hand(self, reward):
+		self.reward = reward
+		self.bankroll += reward
+		self.observation[0] = 0
+		self.observation[53:] = 0
+		if self.rounds == self.max_rounds:
+			# print("Reached Maximum Rounds (" + str(self.max_rounds) + ')')
+			self.done = True
+		elif int(self.bankroll) < 5:
+			# print("Okay champ, try again tomorrow.")
+			self.done = True
 
 	def step(self, action):
-		if self.observation[0] == 0: #stage
-			if self.deck.len() < 3:
-				self.reshuffle()
+		if self.observation[0] == 0:
+			self.bet = min(5*(action[0]+1), self.bankroll)
+			self.hand = self.hit(Hand(), 2, 53)
+			self.dealer = self.hit(Hand(), 1, 105)
 
 			self.rounds += 1
-			self.bet = min(5*(action[0]+1), self.bankroll)
-			self.bankroll -= self.bet
-
-			self.hand = Hand()
-			for hand_i in range(2):
-				idx = self.hand.add_card(self.deck.deal())
-				self.observation[1+idx] = 0
-				self.observation[53+idx] = 1
-
-			self.dealer = Hand()
-			idx = self.dealer.add_card(self.deck.deal())
-			self.observation[1+idx] = 0
-			self.observation[105+idx] = 1
-
 			self.observation[0] = 1
 			self.reward = 0
 
 		elif action[1] == 0:
-			if self.deck.len() == 0:
-				self.reshuffle()
-			idx = self.hand.add_card(self.deck.deal())
-			self.observation[1+idx] = 0
-			self.observation[53+idx] = 1
-
-			if self.hand.value[-1] > 21:
-				self.reward = -self.bet
-				self.observation[0] = 0
-				self.observation[53:] = 0
-				if self.rounds == self.max_rounds or int(self.bankroll) < 5:
-					self.done = True
+			self.hand = self.hit(self.hand, 1, 53)
+			if self.hand.best_value > 21:
+				self.end_hand(-self.bet)
 			else:
 				self.reward = 0
 
 		else:
-			while self.dealer.value[0] < 17:
-				if self.deck.len() == 0:
-					self.reshuffle()
-				idx = self.dealer.add_card(self.deck.deal())
+			while self.dealer.dealer_value < 17:
+				self.dealer = self.hit(self.dealer, 1, 105)
 
-			for hand in [self.hand, self.dealer]:
-				if len(hand.value) > 1:
-					adj_hand_vals = [21-val for val in hand.value if val < 22]
-					if len(adj_hand_vals) == 0:
-						hand.best_val = hand.value[0]
-					else:
-						hand.best_val = 21 - min(adj_hand_vals)
-				else:
-					hand.best_val = hand.value[0]
-			if self.hand.best_val == self.dealer.best_val:
-				self.reward = 0
-				self.bankroll += self.bet
-			elif self.hand.best_val > self.dealer.best_val or self.dealer.best_val > 21:
-				self.reward = 10*self.bet
-				self.bankroll += 1.5*self.bet
+			if self.dealer.dealer_value > 21 or self.hand.best_value > self.dealer.dealer_value:
+				self.end_hand(1.5*self.bet)
+			elif self.hand.best_value == self.dealer.dealer_value:
+				self.end_hand(0)
 			else:
-				self.reward = -self.bet
+				self.end_hand(-self.bet)
 
-			self.observation[0] = 0
-			self.observation[53:] = 0
-
-			if self.rounds == self.max_rounds or int(self.bankroll) < 5:
-				self.done = True
 		return self.observation, self.reward, self.done, self.info
 
 	def reset(self):
@@ -125,20 +108,17 @@ class GameEnv(gym.Env):
 		if mode != "console":
 			raise NotImplementedError()
 		else:
-			if self.observation[0] == 0:
-				if self.rounds > 1:
-					print("Round Reward:", self.reward)
-					print()
-				print(self.name + ': ' + str(self.bankroll))
+			if self.observation[0] == 1:
+				print(self.name + "'s Bankroll: $", str(self.bankroll))
+				print(self.name + "'s Bet: $" + str(self.bet))
+				print()
 			else:
-				print(self.name, "bet", str(self.bet) + ':')
-				if len(self.hand.cards) > 0:
-					self.hand.display()
-					print()
-					print("Dealer:")
-					print("??")
-					self.dealer.display()
-					print()
+				print(self.name + "'s Hand:")
+				self.hand.display()
+				print("Dealer's Hand:")
+				self.dealer.display()
+				print("Hand Reward:", str(self.reward))
+				print("--------------------")
 
 	def close (self):
 		pass
@@ -163,21 +143,41 @@ class Deck:
 class Hand:
 	def __init__(self):
 		self.cards = []
-		self.value = [0]
-		self.best_val = 0
+		self.values = [0]
+		self.best_value = 0
+		self.dealer_value = 0
 
 	def display(self):
 		for card in self.cards:
 			print(card)
+		print()
 
 	def add_card(self, card):
 		if card.isAce():
-			self.value.append(self.value[-1]-10)
+			self.values.append(self.values[-1]-10)
 		self.cards.append(card)
-		for i in range(len(self.value)):
-			self.value[i] += card.get_value()
+		for i in range(len(self.values)):
+			self.values[i] += card.get_value()
+		self.best_value = self.get_best_value()
+		self.dealer_value = self.get_dealer_value()
 		return card.get_index()
 
+	def get_best_value(self):
+		possibles = [21 - value for value in self.values if value <= 21]
+		if len(possibles) == 0:
+			return self.values[-1]
+		else:
+			return 21 - min(possibles)
+
+	def get_dealer_value(self):
+		possibles = [value for value in self.values if value <= 21]
+		if len(possibles) == 0:
+			return self.values[-1]
+		else:
+			for value in self.values:
+				if value > 17:
+					return value
+			return possibles[0]
 
 class Card:
 	def __init__(self, value, suit):
